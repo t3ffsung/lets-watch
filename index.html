@@ -3,377 +3,139 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Midnight Theatre</title>
+    <title>Watch Party</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        :root {
-            --primary: #9d4edd; /* Deep purple/magenta */
-            --accent: #00f5d4; /* Bioluminescent cyan */
-            --glass: rgba(15, 10, 30, 0.5);
-            --glass-border: rgba(255, 255, 255, 0.1);
-            --text-main: #f8f9fa;
-        }
-
         body {
-            margin: 0; padding: 0;
-            background: linear-gradient(135deg, #0b0914, #1a1025, #0d1b2a, #000000);
-            background-size: 300% 300%;
-            animation: gradientBG 20s ease infinite;
-            font-family: 'Inter', 'Segoe UI', sans-serif;
-            color: var(--text-main);
-            height: 100vh; overflow: hidden;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0f0f0f;
+            color: #f1f1f1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
         }
-
-        @keyframes gradientBG {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
+        .control-panel {
+            background-color: #1e1e1e;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            margin-bottom: 20px;
+            text-align: center;
+            width: 100%;
+            max-width: 500px;
         }
-
-        /* Ambient Starlight Particles */
-        #particle-canvas {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none; z-index: 0;
-        }
-        .particle {
-            position: absolute; background: #fff; border-radius: 50%;
-            box-shadow: 0 0 10px var(--accent), 0 0 20px #fff;
-            animation: floatParticle linear infinite; opacity: 0;
-        }
-        @keyframes floatParticle {
-            0% { transform: translateY(100vh) scale(0.5); opacity: 0; }
-            20% { opacity: 0.8; }
-            80% { opacity: 0.5; }
-            100% { transform: translateY(-10vh) scale(1.2); opacity: 0; }
-        }
-
-        .video-wrapper {
-            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
-            background: #000; z-index: 5; opacity: 0; pointer-events: none;
-            transition: opacity 1.5s ease-in-out;
-        }
-        .video-wrapper.active { opacity: 1; pointer-events: auto; }
-        video { width: 100%; height: 100%; object-fit: contain; }
-
-        /* The Premium Dashboard */
-        .dashboard {
-            position: relative; z-index: 10;
-            background: var(--glass);
-            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-            border: 1px solid var(--glass-border);
-            border-radius: 30px; padding: 50px;
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), inset 0 0 0 1px rgba(255,255,255,0.05);
-            text-align: center; max-width: 650px; width: 90%;
-            transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.8s ease;
-        }
-        .dashboard.hidden { transform: translateY(80px) scale(0.95); opacity: 0; pointer-events: none; }
-
-        h1 { margin: 0 0 5px 0; font-weight: 200; letter-spacing: 4px; font-size: 2.2rem; text-transform: uppercase; }
-        h1 span { font-weight: 600; background: -webkit-linear-gradient(45deg, var(--accent), #e0aaff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .subtitle { color: #a39ebd; margin-bottom: 40px; font-size: 1rem; font-weight: 300; letter-spacing: 1px; }
-
-        .action-split { display: flex; gap: 25px; flex-wrap: wrap; }
-        .card {
-            flex: 1; min-width: 220px;
-            background: rgba(255,255,255,0.02); border: 1px solid var(--glass-border);
-            border-radius: 20px; padding: 25px;
-            display: flex; flex-direction: column; justify-content: space-between;
-            transition: transform 0.3s ease, background 0.3s ease;
-        }
-        .card:hover { background: rgba(255,255,255,0.04); transform: translateY(-5px); }
-
         .id-display {
-            font-family: 'Courier New', Courier, monospace; font-size: 2rem; font-weight: bold; 
-            color: var(--accent); letter-spacing: 6px; margin: 20px 0;
-            text-shadow: 0 0 15px rgba(0, 245, 212, 0.4);
+            background: #2a2a2a;
+            padding: 10px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 1.2em;
+            letter-spacing: 1px;
+            margin: 10px 0;
+            user-select: all;
         }
-
         input {
-            background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1);
-            color: white; padding: 16px; border-radius: 12px; outline: none;
-            font-size: 1.2rem; text-align: center; text-transform: uppercase;
-            width: calc(100% - 34px); margin: 20px 0; letter-spacing: 3px;
-            transition: border-color 0.3s, box-shadow 0.3s;
+            width: calc(100% - 22px);
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 6px;
+            border: 1px solid #333;
+            background: #2a2a2a;
+            color: white;
         }
-        input:focus { border-color: var(--primary); box-shadow: 0 0 20px rgba(157, 78, 221, 0.3); }
-
         button {
-            background: linear-gradient(45deg, var(--primary), #7b2cbf); color: white; border: none;
-            padding: 16px 24px; border-radius: 12px; cursor: pointer;
-            font-weight: 600; font-size: 1.05rem; letter-spacing: 1px; transition: all 0.3s; width: 100%;
-            box-shadow: 0 5px 15px rgba(123, 44, 191, 0.4);
+            background-color: #e50914;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 1em;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
         }
-        button:hover { background: linear-gradient(45deg, #7b2cbf, var(--primary)); transform: translateY(-2px); box-shadow: 0 8px 25px rgba(123, 44, 191, 0.6); }
-        
-        .btn-outline { background: transparent; border: 1px solid rgba(255,255,255,0.2); color: #dcdcdc; margin-top: 10px; box-shadow: none; }
-        .btn-outline:hover { background: rgba(255,255,255,0.05); transform: none; box-shadow: 0 0 10px rgba(255,255,255,0.1); }
-
-        /* Floating Chat Engine */
-        #floating-canvas {
-            position: absolute; bottom: 80px; left: 0; width: 100%; height: calc(100% - 80px);
-            pointer-events: none; overflow: hidden; z-index: 20;
+        button:hover { background-color: #f40612; }
+        video {
+            width: 100%;
+            max-width: 1200px;
+            aspect-ratio: 16/9;
+            background-color: black;
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.8);
         }
-        .floating-item {
-            position: absolute; bottom: 0; font-size: 1.3rem; font-weight: 500;
-            background: rgba(10, 10, 15, 0.7); padding: 12px 24px; border-radius: 25px;
-            backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.1);
-            animation: floatUp 5s cubic-bezier(0.2, 0.8, 0.4, 1) forwards;
-            color: #fff; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-        }
-        
-        /* Special glow for hearts */
-        .glow-heart { text-shadow: 0 0 20px #ff0a54; font-size: 2rem; background: transparent; border: none; box-shadow: none; backdrop-filter: none; padding: 0;}
-
-        @keyframes floatUp {
-            0% { opacity: 0; transform: translateY(30px) scale(0.9); }
-            10% { opacity: 1; transform: translateY(0) scale(1.05); }
-            20% { transform: translateY(0) scale(1); }
-            80% { opacity: 0.9; }
-            100% { opacity: 0; transform: translateY(-60vh) scale(1); }
-        }
-
-        /* Sleek Vertical Right-Side Controls */
-        .movie-controls {
-            position: absolute; right: 25px; top: 50%; transform: translateY(-50%);
-            background: var(--glass); backdrop-filter: blur(15px);
-            border: 1px solid var(--glass-border); border-radius: 20px;
-            padding: 25px 15px; display: flex; flex-direction: column; gap: 20px; align-items: center;
-            z-index: 30; opacity: 0; transition: opacity 0.4s; pointer-events: none;
-            box-shadow: -10px 0 30px rgba(0,0,0,0.6);
-        }
-        .video-wrapper:hover .movie-controls, .movie-controls:focus-within { opacity: 1; pointer-events: auto; }
-        
-        .chat-input-mini {
-            background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.15); border-radius: 12px;
-            color: white; outline: none; width: 140px; font-size: 0.95rem; padding: 12px;
-            text-align: center; margin: 0; text-transform: none; letter-spacing: normal;
-        }
-        .chat-input-mini:focus { border-color: var(--accent); }
-        
-        .reaction-stack { display: flex; flex-direction: column; gap: 15px; margin-top: 5px; }
-        .reaction-btn { 
-            background: transparent; border: none; font-size: 1.8rem; 
-            cursor: pointer; transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
-            padding: 5px; width: auto; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
-        }
-        .reaction-btn:hover { transform: scale(1.4); }
-        
-        .exit-btn { 
-            font-size: 1rem; background: rgba(255,255,255,0.05); color: #fff;
-            border-radius: 50%; width: 50px; height: 50px; 
-            display: flex; align-items: center; justify-content: center; 
-            margin-top: 15px; padding: 0; border: 1px solid rgba(255,255,255,0.1);
-        }
-        .exit-btn:hover { background: rgba(230, 57, 70, 0.8); transform: scale(1.1); border-color: transparent;}
-
     </style>
 </head>
 <body>
 
-    <div id="particle-canvas"></div>
-
-    <div class="video-wrapper" id="video-layer">
-        <video id="video-player" autoplay playsinline></video>
-        <div id="floating-canvas"></div>
+    <div class="control-panel">
+        <h3>🎬 Watch Party</h3>
+        <p>Your ID (Send this to your friend):</p>
+        <div class="id-display" id="my-id">Connecting to network...</div>
         
-        <div class="movie-controls">
-            <input type="text" id="chat-input" class="chat-input-mini" placeholder="Message...">
-            <div class="reaction-stack">
-                <button class="reaction-btn" onclick="sendReaction('❤️')">❤️</button>
-                <button class="reaction-btn" onclick="sendReaction('✨')">✨</button>
-                <button class="reaction-btn" onclick="sendReaction('😂')">😂</button>
-                <button class="reaction-btn" onclick="sendReaction('🍿')">🍿</button>
-            </div>
-            <button class="reaction-btn exit-btn" onclick="location.reload()" title="Exit Room">✕</button>
-        </div>
+        <input type="text" id="friend-id" placeholder="Paste your friend's ID here...">
+        <button id="share-btn">Share Screen & Start Movie</button>
     </div>
 
-    <div class="dashboard" id="main-dashboard">
-        <h1>Midnight <span>Theatre</span></h1>
-        <div class="subtitle">Reserved for two. No servers, just a direct line.</div>
-        
-        <div class="action-split">
-            <div class="card">
-                <span style="color: #9d4edd; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 2px; font-weight: bold;">Your Ticket</span>
-                <div class="id-display" id="my-id">...</div>
-                <div>
-                    <button class="btn-outline" onclick="copyID()">Copy Code</button>
-                    <button id="start-hosting-btn" style="margin-top: 15px;">Host Movie</button>
-                </div>
-            </div>
-
-            <div class="card">
-                <span style="color: #00f5d4; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 2px; font-weight: bold;">Join Room</span>
-                <input type="text" id="friend-id" placeholder="Paste Code" maxlength="6">
-                <button id="join-btn" style="background: linear-gradient(45deg, #00b4d8, #00f5d4); box-shadow: 0 5px 15px rgba(0, 245, 212, 0.3); color: #000;">Enter Theatre</button>
-            </div>
-        </div>
-    </div>
+    <video id="video-player" autoplay playsinline controls></video>
 
     <script>
-        // --- AMBIENT PARTICLES ---
-        function createParticles() {
-            const container = document.getElementById('particle-canvas');
-            for(let i = 0; i < 25; i++) {
-                const particle = document.createElement('div');
-                particle.className = 'particle';
-                particle.style.left = Math.random() * 100 + 'vw';
-                particle.style.width = Math.random() * 4 + 1 + 'px';
-                particle.style.height = particle.style.width;
-                particle.style.animationDuration = (Math.random() * 10 + 10) + 's';
-                particle.style.animationDelay = Math.random() * 10 + 's';
-                container.appendChild(particle);
-            }
-        }
-        createParticles();
-
-        // --- WEBRTC CORE ---
-        const generateShortID = () => Math.random().toString(36).substring(2, 8).toUpperCase();
-        
-        let myId = localStorage.getItem('watchPartyID');
-        if (!myId) {
-            myId = generateShortID();
-            localStorage.setItem('watchPartyID', myId);
-        }
-
-        const peer = new Peer(myId);
-        let dataConnection = null; 
+        // Initialize PeerJS
+        const peer = new Peer();
         const videoPlayer = document.getElementById('video-player');
-        const canvas = document.getElementById('floating-canvas');
 
+        // 1. Get and display your unique ID
         peer.on('open', (id) => {
             document.getElementById('my-id').innerText = id;
         });
 
-        function copyID() {
-            navigator.clipboard.writeText(myId);
-            const btn = document.querySelector('.btn-outline');
-            btn.innerText = "Copied!";
-            btn.style.color = "var(--accent)";
-            btn.style.borderColor = "var(--accent)";
-            setTimeout(() => {
-                btn.innerText = "Copy Code";
-                btn.style.color = "#dcdcdc";
-                btn.style.borderColor = "rgba(255,255,255,0.2)";
-            }, 2000);
-        }
+        // 2. Handle incoming streams (When your friend receives your screen)
+        peer.on('call', (call) => {
+            // Automatically answer the incoming call
+            call.answer(); 
+            
+            // When the stream arrives, play it in the video element
+            call.on('stream', (remoteStream) => {
+                videoPlayer.srcObject = remoteStream;
+            });
+        });
 
-        function triggerImmersionMode() {
-            document.getElementById('main-dashboard').classList.add('hidden');
-            document.getElementById('particle-canvas').style.opacity = '0';
-            document.getElementById('video-layer').classList.add('active');
-        }
+        // 3. Handle outgoing streams (When you click share)
+        document.getElementById('share-btn').addEventListener('click', async () => {
+            const friendId = document.getElementById('friend-id').value;
+            
+            if (!friendId) {
+                alert("Please enter your friend's ID first!");
+                return;
+            }
 
-        // HOSTING
-        document.getElementById('start-hosting-btn').addEventListener('click', async () => {
             try {
-                // Ensure audio and video are requested robustly
-                const stream = await navigator.mediaDevices.getDisplayMedia({ 
-                    video: { cursor: "always" }, 
+                // Prompt browser to capture screen AND system audio
+                const stream = await navigator.mediaDevices.getDisplayMedia({
+                    video: {
+                        cursor: "always"
+                    },
                     audio: true 
                 });
-                videoPlayer.srcObject = stream; 
-                videoPlayer.muted = true; 
-                triggerImmersionMode();
-                spawnFloatingItem("Waiting for her to connect...", "center");
 
-                peer.on('connection', (conn) => {
-                    dataConnection = conn;
-                    setupDataConnection();
-                });
+                // Play it locally so you can see what you are sharing (optional)
+                videoPlayer.srcObject = stream;
+                videoPlayer.muted = true; // Mute locally to avoid echo
 
-                peer.on('call', (call) => {
-                    call.answer(stream); 
-                    spawnFloatingItem("✨ Connection Established!", "center");
-                });
+                // Call the friend's ID and send the stream
+                const call = peer.call(friendId, stream);
+
+                // Stop the call if you hit the native "Stop Sharing" button
+                stream.getVideoTracks()[0].onended = () => {
+                    call.close();
+                };
 
             } catch (err) {
-                console.error(err);
-                alert("Screen share cancelled. Remember to select 'Entire Screen' and 'Share System Audio'.");
+                console.error("Error sharing screen: ", err);
+                alert("Failed to share screen. Make sure you granted permissions.");
             }
         });
-
-        // JOINING
-        document.getElementById('join-btn').addEventListener('click', () => {
-            const friendId = document.getElementById('friend-id').value.toUpperCase();
-            if (!friendId) return alert("Please enter the code first!");
-
-            dataConnection = peer.connect(friendId);
-            setupDataConnection();
-
-            navigator.mediaDevices.getUserMedia({ audio: true }).then(dummyStream => {
-                 const call = peer.call(friendId, dummyStream);
-                 
-                 call.on('stream', (remoteStream) => {
-                    videoPlayer.srcObject = remoteStream;
-                    videoPlayer.play().catch(e => console.log("Autoplay prevented:", e));
-                    triggerImmersionMode();
-                    spawnFloatingItem("🍿 Connected! Enjoy the movie.", "center");
-                });
-            }).catch(err => {
-                const call = peer.call(friendId);
-                call.on('stream', (remoteStream) => {
-                    videoPlayer.srcObject = remoteStream;
-                    videoPlayer.play().catch(e => console.log("Autoplay prevented:", e));
-                    triggerImmersionMode();
-                    spawnFloatingItem("🍿 Connected! Enjoy the movie.", "center");
-                });
-            });
-        });
-
-        // CHAT & REACTIONS
-        function setupDataConnection() {
-            dataConnection.on('data', (data) => {
-                spawnFloatingItem(data.message, "left");
-            });
-        }
-
-        document.getElementById('chat-input').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                const msg = e.target.value;
-                if (msg && dataConnection && dataConnection.open) {
-                    dataConnection.send({ message: msg });
-                    spawnFloatingItem(msg, "right"); 
-                    e.target.value = '';
-                }
-            }
-        });
-
-        function sendReaction(emoji) {
-            if (dataConnection && dataConnection.open) dataConnection.send({ message: emoji });
-            spawnFloatingItem(emoji, "right");
-        }
-
-        function spawnFloatingItem(text, side) {
-            const item = document.createElement('div');
-            item.className = 'floating-item';
-            
-            // Special styling if it's just a heart emoji
-            if(text === '❤️') {
-                item.classList.add('glow-heart');
-            }
-            
-            item.innerText = text;
-            
-            const randomOffset = Math.floor(Math.random() * 20);
-            
-            if (side === "left") {
-                item.style.left = (5 + randomOffset) + '%';
-                item.style.borderColor = "rgba(0, 245, 212, 0.4)"; 
-            } else if (side === "right") {
-                item.style.right = (15 + randomOffset) + '%'; 
-                item.style.borderColor = "rgba(157, 78, 221, 0.4)"; 
-            } else {
-                item.style.left = "50%"; 
-                item.style.transform = "translateX(-50%)";
-                item.style.background = "rgba(255,255,255,0.1)";
-                item.style.backdropFilter = "blur(15px)";
-            }
-
-            canvas.appendChild(item);
-            setTimeout(() => item.remove(), 4800);
-        }
     </script>
 </body>
 </html>
