@@ -3,139 +3,254 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Watch Party</title>
+    <title>Cinematic Watch Party</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
+        :root {
+            --primary: #e50914; /* Netflix Red */
+            --glass: rgba(20, 20, 20, 0.7);
+            --border: rgba(255, 255, 255, 0.1);
+        }
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #0f0f0f;
-            color: #f1f1f1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            margin: 0;
-            padding: 20px;
-        }
-        .control-panel {
-            background-color: #1e1e1e;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-            margin-bottom: 20px;
-            text-align: center;
-            width: 100%;
-            max-width: 500px;
-        }
-        .id-display {
-            background: #2a2a2a;
-            padding: 10px;
-            border-radius: 6px;
-            font-family: monospace;
-            font-size: 1.2em;
-            letter-spacing: 1px;
-            margin: 10px 0;
-            user-select: all;
-        }
-        input {
-            width: calc(100% - 22px);
-            padding: 10px;
-            margin-bottom: 15px;
-            border-radius: 6px;
-            border: 1px solid #333;
-            background: #2a2a2a;
+            margin: 0; padding: 0;
+            background: radial-gradient(circle at center, #1a1a1a 0%, #000000 100%);
+            font-family: 'Segoe UI', system-ui, sans-serif;
             color: white;
+            height: 100vh; overflow: hidden;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
         }
-        button {
-            background-color: #e50914;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            font-size: 1em;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: background 0.2s;
+
+        /* Video Container */
+        .video-wrapper {
+            position: relative; width: 100vw; height: 100vh;
+            background: #000;
         }
-        button:hover { background-color: #f40612; }
         video {
-            width: 100%;
-            max-width: 1200px;
-            aspect-ratio: 16/9;
-            background-color: black;
-            border-radius: 12px;
-            box-shadow: 0 8px 30px rgba(0,0,0,0.8);
+            width: 100%; height: 100%; object-fit: contain;
         }
+
+        /* Floating Animation Layer */
+        #floating-canvas {
+            position: absolute; bottom: 100px; left: 0; width: 100%; height: calc(100% - 100px);
+            pointer-events: none; overflow: hidden; z-index: 10;
+        }
+        .floating-item {
+            position: absolute; bottom: 0; right: 5%;
+            font-size: 1.5rem; font-weight: bold;
+            background: rgba(0,0,0,0.5); padding: 8px 16px; border-radius: 20px;
+            backdrop-filter: blur(4px);
+            animation: floatUp 4s ease-out forwards;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+        }
+        @keyframes floatUp {
+            0% { opacity: 0; transform: translateY(20px) scale(0.8); }
+            10% { opacity: 1; transform: translateY(0) scale(1.1); }
+            20% { transform: translateY(0) scale(1); }
+            80% { opacity: 0.8; }
+            100% { opacity: 0; transform: translateY(-400px) scale(1); }
+        }
+
+        /* Glassmorphism Controls Overlay */
+        .controls-overlay {
+            position: absolute; bottom: 0; left: 0; width: 100%;
+            background: var(--glass);
+            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            border-top: 1px solid var(--border);
+            padding: 20px; box-sizing: border-box;
+            display: flex; justify-content: space-between; align-items: center;
+            transition: transform 0.3s ease; z-index: 20;
+        }
+        
+        /* UI Elements */
+        .group { display: flex; gap: 15px; align-items: center; }
+        
+        .glass-panel {
+            background: rgba(255,255,255,0.05); padding: 10px 15px;
+            border-radius: 8px; border: 1px solid var(--border);
+            display: flex; align-items: center; gap: 10px;
+        }
+        .id-text { font-family: monospace; font-size: 1.2rem; font-weight: bold; color: #00ffcc; letter-spacing: 2px;}
+        
+        input {
+            background: rgba(0,0,0,0.5); border: 1px solid var(--border);
+            color: white; padding: 12px; border-radius: 8px; outline: none;
+            font-size: 1rem;
+        }
+        input:focus { border-color: var(--primary); }
+        
+        button {
+            background: var(--primary); color: white; border: none;
+            padding: 12px 20px; border-radius: 8px; cursor: pointer;
+            font-weight: bold; font-size: 1rem; transition: 0.2s;
+        }
+        button:hover { background: #ff0f1f; transform: scale(1.05); }
+        
+        .btn-secondary { background: rgba(255,255,255,0.1); }
+        .btn-secondary:hover { background: rgba(255,255,255,0.2); }
+
+        .reactions-bar { display: flex; gap: 10px; }
+        .reaction-btn { 
+            background: transparent; font-size: 1.5rem; padding: 5px; 
+            cursor: pointer; transition: transform 0.2s; border: none;
+        }
+        .reaction-btn:hover { transform: scale(1.3); }
+
     </style>
 </head>
 <body>
 
-    <div class="control-panel">
-        <h3>🎬 Watch Party</h3>
-        <p>Your ID (Send this to your friend):</p>
-        <div class="id-display" id="my-id">Connecting to network...</div>
+    <div class="video-wrapper">
+        <video id="video-player" autoplay playsinline></video>
+        <div id="floating-canvas"></div>
         
-        <input type="text" id="friend-id" placeholder="Paste your friend's ID here...">
-        <button id="share-btn">Share Screen & Start Movie</button>
+        <div class="controls-overlay" id="controls">
+            <div class="group">
+                <div class="glass-panel">
+                    <span style="color: #aaa; font-size: 0.9rem;">Your Code:</span>
+                    <span class="id-text" id="my-id">...</span>
+                    <button class="btn-secondary" style="padding: 5px 10px; font-size: 0.8rem;" onclick="copyID()">Copy</button>
+                </div>
+                
+                <input type="text" id="friend-id" placeholder="Friend's Code" maxlength="6" style="width: 120px; text-transform: uppercase;">
+                <button id="connect-btn">Share Screen</button>
+            </div>
+
+            <div class="group">
+                <input type="text" id="chat-input" placeholder="Type a message..." style="width: 250px;">
+                <button class="btn-secondary" id="send-chat">Send</button>
+                
+                <div class="reactions-bar">
+                    <button class="reaction-btn" onclick="sendReaction('❤️')">❤️</button>
+                    <button class="reaction-btn" onclick="sendReaction('😂')">😂</button>
+                    <button class="reaction-btn" onclick="sendReaction('😮')">😮</button>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <video id="video-player" autoplay playsinline controls></video>
-
     <script>
-        // Initialize PeerJS
-        const peer = new Peer();
+        // Generate a short 6-character alphanumeric ID
+        const generateShortID = () => Math.random().toString(36).substring(2, 8).toUpperCase();
+        const myId = generateShortID();
+        
+        const peer = new Peer(myId);
+        let dataConnection = null; // Holds the chat connection
         const videoPlayer = document.getElementById('video-player');
+        const canvas = document.getElementById('floating-canvas');
 
-        // 1. Get and display your unique ID
+        // --- 1. INITIALIZATION ---
         peer.on('open', (id) => {
             document.getElementById('my-id').innerText = id;
         });
 
-        // 2. Handle incoming streams (When your friend receives your screen)
+        // Copy button logic
+        function copyID() {
+            navigator.clipboard.writeText(myId);
+            alert("Code copied!");
+        }
+
+        // --- 2. HANDLING INCOMING CONNECTIONS (Friend connects to you) ---
+        // Handle incoming data connection (Chat)
+        peer.on('connection', (conn) => {
+            dataConnection = conn;
+            setupDataConnection();
+        });
+
+        // Handle incoming media connection (Video)
         peer.on('call', (call) => {
-            // Automatically answer the incoming call
             call.answer(); 
-            
-            // When the stream arrives, play it in the video element
             call.on('stream', (remoteStream) => {
                 videoPlayer.srcObject = remoteStream;
+                spawnFloatingItem("🎥 Stream Connected!", "left");
             });
         });
 
-        // 3. Handle outgoing streams (When you click share)
-        document.getElementById('share-btn').addEventListener('click', async () => {
-            const friendId = document.getElementById('friend-id').value;
-            
-            if (!friendId) {
-                alert("Please enter your friend's ID first!");
-                return;
-            }
+        // --- 3. OUTGOING CONNECTIONS (You connect to friend) ---
+        document.getElementById('connect-btn').addEventListener('click', async () => {
+            const friendId = document.getElementById('friend-id').value.toUpperCase();
+            if (!friendId) return alert("Enter your friend's code!");
 
             try {
-                // Prompt browser to capture screen AND system audio
-                const stream = await navigator.mediaDevices.getDisplayMedia({
-                    video: {
-                        cursor: "always"
-                    },
-                    audio: true 
-                });
+                // Connect for chat
+                dataConnection = peer.connect(friendId);
+                setupDataConnection();
 
-                // Play it locally so you can see what you are sharing (optional)
-                videoPlayer.srcObject = stream;
-                videoPlayer.muted = true; // Mute locally to avoid echo
-
-                // Call the friend's ID and send the stream
-                const call = peer.call(friendId, stream);
-
-                // Stop the call if you hit the native "Stop Sharing" button
-                stream.getVideoTracks()[0].onended = () => {
-                    call.close();
-                };
+                // Connect for Video
+                const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+                videoPlayer.srcObject = stream; // Show local preview
+                videoPlayer.muted = true; 
+                
+                peer.call(friendId, stream);
+                spawnFloatingItem("🎥 Sharing Screen...", "right");
 
             } catch (err) {
-                console.error("Error sharing screen: ", err);
-                alert("Failed to share screen. Make sure you granted permissions.");
+                console.error(err);
+                alert("Failed to share screen.");
             }
         });
+
+        // --- 4. CHAT & REACTION LOGIC ---
+        function setupDataConnection() {
+            dataConnection.on('open', () => {
+                spawnFloatingItem("✨ Linked up!", "center");
+            });
+            
+            dataConnection.on('data', (data) => {
+                // When we receive data from the friend, float it on screen
+                spawnFloatingItem(data.message, "left");
+            });
+        }
+
+        // Sending Chat
+        document.getElementById('send-chat').addEventListener('click', () => {
+            const input = document.getElementById('chat-input');
+            const msg = input.value;
+            if (msg && dataConnection && dataConnection.open) {
+                dataConnection.send({ message: msg });
+                spawnFloatingItem(msg, "right"); // Show locally too
+                input.value = '';
+            }
+        });
+
+        // Send chat on "Enter" key
+        document.getElementById('chat-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') document.getElementById('send-chat').click();
+        });
+
+        // Sending Reactions
+        function sendReaction(emoji) {
+            if (dataConnection && dataConnection.open) {
+                dataConnection.send({ message: emoji });
+            }
+            spawnFloatingItem(emoji, "right");
+        }
+
+        // --- 5. THE FLOATING UI ENGINE ---
+        function spawnFloatingItem(text, side) {
+            const item = document.createElement('div');
+            item.className = 'floating-item';
+            item.innerText = text;
+            
+            // Randomize starting position slightly
+            const randomOffset = Math.floor(Math.random() * 20);
+            
+            if (side === "left") {
+                item.style.left = (5 + randomOffset) + '%';
+                item.style.background = "rgba(0, 255, 204, 0.2)"; // Teal for friend
+            } else if (side === "right") {
+                item.style.right = (5 + randomOffset) + '%';
+                item.style.background = "rgba(229, 9, 20, 0.4)"; // Red for you
+            } else {
+                item.style.left = "45%"; // Center for system messages
+            }
+
+            canvas.appendChild(item);
+
+            // Clean up DOM after animation ends (4 seconds)
+            setTimeout(() => {
+                item.remove();
+            }, 4000);
+        }
     </script>
 </body>
 </html>
