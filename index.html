@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Watch Party</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0f0f0f;
+            color: #f1f1f1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+        .control-panel {
+            background-color: #1e1e1e;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            margin-bottom: 20px;
+            text-align: center;
+            width: 100%;
+            max-width: 500px;
+        }
+        .id-display {
+            background: #2a2a2a;
+            padding: 10px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 1.2em;
+            letter-spacing: 1px;
+            margin: 10px 0;
+            user-select: all;
+        }
+        input {
+            width: calc(100% - 22px);
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 6px;
+            border: 1px solid #333;
+            background: #2a2a2a;
+            color: white;
+        }
+        button {
+            background-color: #e50914;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 1em;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        button:hover { background-color: #f40612; }
+        video {
+            width: 100%;
+            max-width: 1200px;
+            aspect-ratio: 16/9;
+            background-color: black;
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.8);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="control-panel">
+        <h3>🎬 Watch Party</h3>
+        <p>Your ID (Send this to your friend):</p>
+        <div class="id-display" id="my-id">Connecting to network...</div>
+        
+        <input type="text" id="friend-id" placeholder="Paste your friend's ID here...">
+        <button id="share-btn">Share Screen & Start Movie</button>
+    </div>
+
+    <video id="video-player" autoplay playsinline controls></video>
+
+    <script>
+        // Initialize PeerJS
+        const peer = new Peer();
+        const videoPlayer = document.getElementById('video-player');
+
+        // 1. Get and display your unique ID
+        peer.on('open', (id) => {
+            document.getElementById('my-id').innerText = id;
+        });
+
+        // 2. Handle incoming streams (When your friend receives your screen)
+        peer.on('call', (call) => {
+            // Automatically answer the incoming call
+            call.answer(); 
+            
+            // When the stream arrives, play it in the video element
+            call.on('stream', (remoteStream) => {
+                videoPlayer.srcObject = remoteStream;
+            });
+        });
+
+        // 3. Handle outgoing streams (When you click share)
+        document.getElementById('share-btn').addEventListener('click', async () => {
+            const friendId = document.getElementById('friend-id').value;
+            
+            if (!friendId) {
+                alert("Please enter your friend's ID first!");
+                return;
+            }
+
+            try {
+                // Prompt browser to capture screen AND system audio
+                const stream = await navigator.mediaDevices.getDisplayMedia({
+                    video: {
+                        cursor: "always"
+                    },
+                    audio: true 
+                });
+
+                // Play it locally so you can see what you are sharing (optional)
+                videoPlayer.srcObject = stream;
+                videoPlayer.muted = true; // Mute locally to avoid echo
+
+                // Call the friend's ID and send the stream
+                const call = peer.call(friendId, stream);
+
+                // Stop the call if you hit the native "Stop Sharing" button
+                stream.getVideoTracks()[0].onended = () => {
+                    call.close();
+                };
+
+            } catch (err) {
+                console.error("Error sharing screen: ", err);
+                alert("Failed to share screen. Make sure you granted permissions.");
+            }
+        });
+    </script>
+</body>
+</html>
