@@ -2,140 +2,433 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Watch Party</title>
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Stardust Cinema</title>
     <style>
+        /* --- THE STARDUST THEME --- */
+        :root {
+            --love-red: #ff2a5f;
+            --starlight: #e0c3fc;
+            --deep-space: #0f0c29;
+            --glass: rgba(20, 15, 35, 0.4);
+            --glass-border: rgba(255, 255, 255, 0.15);
+        }
+
+        /* Apple Fix: Use 100dvh instead of 100vh to avoid Safari bottom-bar clipping */
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #0f0f0f;
-            color: #f1f1f1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            margin: 0;
-            padding: 20px;
+            margin: 0; padding: 0;
+            background: linear-gradient(to bottom, #0f0c29, #302b63, #24243e);
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            color: #fff; height: 100dvh; overflow: hidden;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            /* Prevent pull-to-refresh on mobile */
+            overscroll-behavior-y: none; 
         }
-        .control-panel {
-            background-color: #1e1e1e;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-            margin-bottom: 20px;
-            text-align: center;
-            width: 100%;
-            max-width: 500px;
+
+        #stars-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+        .star {
+            position: absolute; background: #fff; border-radius: 50%;
+            box-shadow: 0 0 10px #fff, 0 0 20px var(--starlight); animation: twinkle infinite alternate;
         }
+        @keyframes twinkle { 0% { opacity: 0.2; transform: scale(0.8); } 100% { opacity: 1; transform: scale(1.2); } }
+
+        .shooting-star {
+            position: absolute; top: 10%; left: -10%; width: 150px; height: 2px;
+            background: linear-gradient(to right, rgba(255,255,255,0), rgba(255,255,255,1));
+            transform: rotate(-45deg); animation: shoot 8s linear infinite; opacity: 0;
+        }
+        @keyframes shoot { 0% { left: -10%; top: 10%; opacity: 1; } 20% { left: 110%; top: 60%; opacity: 0; } 100% { opacity: 0; } }
+
+        .video-wrapper {
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh;
+            background: #000; z-index: 5; opacity: 0; pointer-events: none;
+            transition: opacity 2s ease-in-out;
+        }
+        .video-wrapper.active { opacity: 1; pointer-events: auto; }
+        video { width: 100%; height: 100%; object-fit: contain; }
+
+        .dashboard {
+            position: relative; z-index: 10;
+            background: rgba(15, 10, 25, 0.6);
+            backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
+            border: 1px solid var(--glass-border); border-radius: 30px; padding: 50px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), inset 0 0 20px rgba(224, 195, 252, 0.1);
+            text-align: center; max-width: 600px; width: 90%;
+            transition: transform 1s cubic-bezier(0.16, 1, 0.3, 1), opacity 1s ease;
+        }
+        .dashboard.hidden { transform: translateY(100px) scale(0.9); opacity: 0; pointer-events: none; }
+
+        h1 { margin: 0; font-weight: 300; letter-spacing: 5px; font-size: 2.5rem; text-transform: uppercase; color: var(--starlight); text-shadow: 0 0 20px rgba(224, 195, 252, 0.5); }
+        .subtitle { color: #a39ebd; margin: 10px 0 40px 0; font-size: 1rem; font-style: italic; }
+
+        .action-split { display: flex; gap: 20px; flex-wrap: wrap; }
+        .card {
+            flex: 1; min-width: 200px;
+            background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 20px; padding: 25px; display: flex; flex-direction: column; justify-content: space-between;
+        }
+
         .id-display {
-            background: #2a2a2a;
-            padding: 10px;
-            border-radius: 6px;
-            font-family: monospace;
-            font-size: 1.2em;
-            letter-spacing: 1px;
-            margin: 10px 0;
-            user-select: all;
+            font-family: 'Courier New', monospace; font-size: 2.2rem; font-weight: bold; 
+            color: #fff; letter-spacing: 8px; margin: 15px 0; text-shadow: 0 0 15px var(--love-red);
         }
+
         input {
-            width: calc(100% - 22px);
-            padding: 10px;
-            margin-bottom: 15px;
-            border-radius: 6px;
-            border: 1px solid #333;
-            background: #2a2a2a;
-            color: white;
+            background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); color: white;
+            padding: 15px; border-radius: 12px; outline: none; font-size: 1.1rem; text-align: center; 
+            text-transform: uppercase; width: calc(100% - 32px); margin: 15px 0; letter-spacing: 3px;
+            transition: 0.3s;
         }
+        input:focus { border-color: var(--love-red); box-shadow: 0 0 15px rgba(255, 42, 95, 0.4); }
+
         button {
-            background-color: #e50914;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            font-size: 1em;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: background 0.2s;
+            background: linear-gradient(45deg, #ff0844 0%, #ffb199 100%); color: white; border: none;
+            padding: 15px; border-radius: 12px; cursor: pointer; font-weight: bold; font-size: 1rem; 
+            letter-spacing: 1px; transition: all 0.3s; width: 100%; box-shadow: 0 5px 20px rgba(255, 8, 68, 0.4);
         }
-        button:hover { background-color: #f40612; }
-        video {
-            width: 100%;
-            max-width: 1200px;
-            aspect-ratio: 16/9;
-            background-color: black;
-            border-radius: 12px;
-            box-shadow: 0 8px 30px rgba(0,0,0,0.8);
+        button:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(255, 8, 68, 0.6); }
+        
+        .btn-outline { background: transparent; border: 1px solid var(--glass-border); color: #ccc; box-shadow: none; margin-top: 10px;}
+        .btn-outline:hover { background: rgba(255,255,255,0.1); box-shadow: none; transform: none;}
+
+        #floating-canvas { position: absolute; bottom: 0; left: 0; width: 100%; height: 100%; pointer-events: none; overflow: hidden; z-index: 20; }
+        
+        .floating-item {
+            position: absolute; bottom: 120px; font-size: 1.2rem; font-weight: 500;
+            background: rgba(20, 10, 30, 0.8); padding: 12px 24px; border-radius: 20px 20px 20px 0;
+            backdrop-filter: blur(8px); border: 1px solid rgba(255, 42, 95, 0.3);
+            animation: floatUp 6s cubic-bezier(0.2, 0.8, 0.4, 1) forwards; color: #fff; box-shadow: 0 5px 20px rgba(0,0,0,0.5);
+        }
+        .floating-item.friend { border-color: rgba(224, 195, 252, 0.5); border-radius: 20px 20px 0 20px; }
+        .reaction-emoji { font-size: 3rem; background: transparent; border: none; box-shadow: none; padding: 0; filter: drop-shadow(0 0 10px rgba(255,255,255,0.5)); }
+
+        @keyframes floatUp {
+            0% { opacity: 0; transform: translateY(50px) scale(0.8); }
+            10% { opacity: 1; transform: translateY(0) scale(1); }
+            80% { opacity: 0.9; }
+            100% { opacity: 0; transform: translateY(-70dvh) scale(1.1); }
+        }
+
+        .heart-bomb { position: absolute; font-size: 2.5rem; animation: explode 2.5s ease-out forwards; pointer-events: none; }
+        @keyframes explode {
+            0% { transform: translate(0, 0) scale(0.5); opacity: 1; }
+            100% { transform: translate(var(--tx), var(--ty)) scale(1.5) rotate(var(--rot)); opacity: 0; }
+        }
+
+        /* Apple Fix: Safe padding for bottom notches on newer iPhones */
+        .movie-controls {
+            position: absolute; right: 20px; top: 50%; transform: translateY(-50%);
+            background: var(--glass); backdrop-filter: blur(15px); border: 1px solid var(--glass-border); 
+            border-radius: 20px; padding: 20px 15px; display: flex; flex-direction: column; gap: 15px; 
+            align-items: center; z-index: 30; opacity: 0; transition: opacity 0.4s;
+        }
+        .video-wrapper:hover .movie-controls, .movie-controls:focus-within { opacity: 1; pointer-events: auto; }
+        
+        .chat-input-mini {
+            background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.2); border-radius: 25px;
+            color: white; outline: none; width: 150px; font-size: 0.95rem; padding: 12px 15px;
+            text-align: left; margin: 0; text-transform: none; letter-spacing: normal; font-style: italic;
+        }
+        .chat-input-mini:focus { border-color: var(--love-red); box-shadow: 0 0 10px rgba(255, 42, 95, 0.3); }
+        
+        .reaction-stack { display: flex; flex-direction: column; gap: 12px; margin-top: 5px; }
+        .reaction-btn { 
+            background: transparent; border: none; font-size: 1.8rem; cursor: pointer; 
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); padding: 5px; width: auto; box-shadow: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .reaction-btn:hover, .reaction-btn:active { transform: scale(1.4); background: transparent; box-shadow: none; }
+        
+        .flirt-btn { position: relative; }
+        .flirt-btn::after {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            border-radius: 50%; box-shadow: 0 0 15px var(--love-red); animation: pulse 2s infinite; z-index: -1;
+        }
+        @keyframes pulse { 0% { transform: scale(0.9); opacity: 0.8; } 50% { transform: scale(1.3); opacity: 0; } 100% { transform: scale(0.9); opacity: 0; } }
+
+        .sys-btn { 
+            font-size: 1.2rem; background: rgba(255,255,255,0.1); color: #fff; border-radius: 50%; 
+            width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; 
+            padding: 0; border: 1px solid rgba(255,255,255,0.2); box-shadow: none; margin-top: 5px;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* --- MOBILE/IPAD OPTIMIZATIONS --- */
+        @media (max-width: 800px) {
+            .movie-controls {
+                right: 50%; top: auto; bottom: env(safe-area-inset-bottom, 20px); transform: translateX(50%);
+                flex-direction: row; width: 95%; max-width: 450px; justify-content: space-between;
+                padding: 10px 15px; border-radius: 30px; box-sizing: border-box;
+            }
+            .chat-input-mini { width: 110px; padding: 10px; font-size: 0.9rem;}
+            .reaction-stack { flex-direction: row; gap: 8px; margin-top: 0; }
+            .reaction-btn { font-size: 1.6rem; }
+            .sys-btn { width: 38px; height: 38px; font-size: 0.9rem; margin-top: 0;}
+            h1 { font-size: 1.8rem; }
+            .dashboard { padding: 30px 20px; }
         }
     </style>
 </head>
 <body>
 
-    <div class="control-panel">
-        <h3>🎬 Watch Party</h3>
-        <p>Your ID (Send this to your friend):</p>
-        <div class="id-display" id="my-id">Connecting to network...</div>
-        
-        <input type="text" id="friend-id" placeholder="Paste your friend's ID here...">
-        <button id="share-btn">Share Screen & Start Movie</button>
+    <div id="stars-canvas">
+        <div class="shooting-star"></div>
     </div>
 
-    <video id="video-player" autoplay playsinline controls></video>
+    <div class="video-wrapper" id="video-layer">
+        <video id="video-player" playsinline webkit-playsinline></video>
+        
+        <div id="floating-canvas"></div>
+        
+        <div class="movie-controls" id="movie-controls">
+            <input type="text" id="chat-input" class="chat-input-mini" placeholder="Whisper...">
+            <div class="reaction-stack">
+                <button class="reaction-btn" onclick="sendReaction('❤️')">❤️</button>
+                <button class="reaction-btn flirt-btn" onclick="triggerFlirtBomb()" title="Send Love">💌</button>
+                <button class="reaction-btn" onclick="sendReaction('😂')">😂</button>
+                <button class="reaction-btn" onclick="sendReaction('🍿')">🍿</button>
+            </div>
+            <button class="sys-btn" onclick="toggleUI()" title="Hide Controls">👁️</button>
+            <button class="sys-btn" style="color: #ff2a5f;" onclick="location.reload()" title="Exit Room">✕</button>
+        </div>
+    </div>
+
+    <div class="dashboard" id="main-dashboard">
+        <h1>Stardust <span>Cinema</span></h1>
+        <div class="subtitle">Reserved for two.</div>
+        
+        <div class="action-split">
+            <div class="card">
+                <span style="color: #ffb199; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 2px; font-weight: bold;">Your VIP Ticket</span>
+                <div class="id-display" id="my-id">...</div>
+                <div>
+                    <button class="btn-outline" onclick="copyID()">Copy Ticket 🎟️</button>
+                    <button id="start-hosting-btn" style="margin-top: 15px;">Host Movie</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <span style="color: var(--starlight); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 2px; font-weight: bold;">Join Her</span>
+                <input type="text" id="friend-id" placeholder="Paste Ticket" maxlength="6">
+                <button id="join-btn" style="background: linear-gradient(45deg, #a18cd1 0%, #fbc2eb 100%); color: #000; box-shadow: 0 5px 20px rgba(161, 140, 209, 0.4);">Take a Seat</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js"></script>
 
     <script>
-        // Initialize PeerJS
-        const peer = new Peer();
-        const videoPlayer = document.getElementById('video-player');
+        function generateStars() {
+            const canvas = document.getElementById('stars-canvas');
+            for(let i = 0; i < 75; i++) {
+                let star = document.createElement('div');
+                star.className = 'star';
+                star.style.left = Math.random() * 100 + 'vw';
+                star.style.top = Math.random() * 100 + 'vh';
+                star.style.width = Math.random() * 3 + 'px';
+                star.style.height = star.style.width;
+                star.style.animationDuration = (Math.random() * 3 + 2) + 's';
+                star.style.animationDelay = Math.random() * 5 + 's';
+                canvas.appendChild(star);
+            }
+        }
+        generateStars();
 
-        // 1. Get and display your unique ID
-        peer.on('open', (id) => {
-            document.getElementById('my-id').innerText = id;
+        function explodeHearts() {
+            const canvas = document.getElementById('floating-canvas');
+            const colors = ['#ff2a5f', '#ff0844', '#fbc2eb', '#e0c3fc'];
+            for(let i = 0; i < 45; i++) {
+                let heart = document.createElement('div');
+                heart.className = 'heart-bomb';
+                heart.innerText = ['❤️', '💖', '✨', '💌'][Math.floor(Math.random() * 4)];
+                
+                heart.style.left = '50%';
+                heart.style.top = '50%';
+                
+                let angle = Math.random() * Math.PI * 2;
+                let velocity = 150 + Math.random() * 500; 
+                let tx = Math.cos(angle) * velocity + 'px';
+                let ty = Math.sin(angle) * velocity + 'px';
+                let rot = (Math.random() * 360) + 'deg';
+                
+                heart.style.setProperty('--tx', tx);
+                heart.style.setProperty('--ty', ty);
+                heart.style.setProperty('--rot', rot);
+                heart.style.color = colors[Math.floor(Math.random() * colors.length)];
+                
+                canvas.appendChild(heart);
+                setTimeout(() => heart.remove(), 2500);
+            }
+        }
+
+        // Apple Safari doesn't support the Fullscreen API predictably on iPhones. 
+        // Better to just hide the controls so she can enjoy the view.
+        let uiVisible = true;
+        function toggleUI() {
+            const controls = document.getElementById('movie-controls');
+            if(uiVisible) {
+                controls.style.opacity = '0';
+                setTimeout(() => controls.style.pointerEvents = 'none', 400);
+                spawnFloatingItem("Tap screen to show controls", "sys");
+            }
+            uiVisible = !uiVisible;
+        }
+
+        // Tap anywhere to bring controls back
+        document.getElementById('video-layer').addEventListener('click', (e) => {
+            if(!uiVisible && e.target.id !== 'chat-input') {
+                const controls = document.getElementById('movie-controls');
+                controls.style.pointerEvents = 'auto';
+                controls.style.opacity = '1';
+                uiVisible = true;
+            }
         });
 
-        // 2. Handle incoming streams (When your friend receives your screen)
+        const generateShortID = () => Math.random().toString(36).substring(2, 8).toUpperCase();
+        let myId = localStorage.getItem('stardustID');
+        if (!myId) { myId = generateShortID(); localStorage.setItem('stardustID', myId); }
+
+        const peer = new Peer(myId);
+        let dataConnection = null; 
+        let localStream = null; 
+        const videoPlayer = document.getElementById('video-player');
+        const canvas = document.getElementById('floating-canvas');
+
+        peer.on('open', (id) => document.getElementById('my-id').innerText = id);
+
+        function copyID() {
+            navigator.clipboard.writeText(myId);
+            const btn = document.querySelector('.btn-outline');
+            btn.innerText = "Ticket Copied! ✨";
+            setTimeout(() => btn.innerText = "Copy Ticket 🎟️", 2000);
+        }
+
+        function triggerImmersionMode() {
+            document.getElementById('main-dashboard').classList.add('hidden');
+            document.getElementById('video-layer').classList.add('active');
+        }
+
+        peer.on('connection', (conn) => {
+            dataConnection = conn;
+            setupDataConnection();
+            if (localStream) {
+                spawnFloatingItem("She arrived. Starting movie...", "sys");
+                peer.call(conn.peer, localStream);
+            }
+        });
+
         peer.on('call', (call) => {
-            // Automatically answer the incoming call
             call.answer(); 
-            
-            // When the stream arrives, play it in the video element
             call.on('stream', (remoteStream) => {
                 videoPlayer.srcObject = remoteStream;
+                
+                // Apple Fix: Robust autoplay catch
+                let playPromise = videoPlayer.play();
+                if (playPromise !== undefined) {
+                    playPromise.catch(error => {
+                        console.log("iOS Autoplay prevented. Waiting for tap.", error);
+                        spawnFloatingItem("Tap anywhere on screen to start movie! 🍿", "sys");
+                        
+                        // Force play on next tap if iOS blocked it
+                        document.body.addEventListener('click', () => {
+                            videoPlayer.play();
+                        }, { once: true });
+                    });
+                }
+                
+                triggerImmersionMode();
             });
         });
 
-        // 3. Handle outgoing streams (When you click share)
-        document.getElementById('share-btn').addEventListener('click', async () => {
-            const friendId = document.getElementById('friend-id').value;
-            
-            if (!friendId) {
-                alert("Please enter your friend's ID first!");
-                return;
-            }
-
+        document.getElementById('start-hosting-btn').addEventListener('click', async () => {
             try {
-                // Prompt browser to capture screen AND system audio
-                const stream = await navigator.mediaDevices.getDisplayMedia({
-                    video: {
-                        cursor: "always"
-                    },
+                localStream = await navigator.mediaDevices.getDisplayMedia({ 
+                    video: { frameRate: { ideal: 60 } }, 
                     audio: true 
                 });
+                videoPlayer.srcObject = localStream; 
+                videoPlayer.muted = true; 
+                triggerImmersionMode();
+                spawnFloatingItem("Waiting for her ticket...", "sys");
 
-                // Play it locally so you can see what you are sharing (optional)
-                videoPlayer.srcObject = stream;
-                videoPlayer.muted = true; // Mute locally to avoid echo
-
-                // Call the friend's ID and send the stream
-                const call = peer.call(friendId, stream);
-
-                // Stop the call if you hit the native "Stop Sharing" button
-                stream.getVideoTracks()[0].onended = () => {
-                    call.close();
-                };
-
+                if (dataConnection && dataConnection.open) {
+                    peer.call(dataConnection.peer, localStream);
+                }
+                localStream.getVideoTracks()[0].onended = () => location.reload();
             } catch (err) {
-                console.error("Error sharing screen: ", err);
-                alert("Failed to share screen. Make sure you granted permissions.");
+                console.error(err); alert("Share cancelled.");
             }
         });
+
+        document.getElementById('join-btn').addEventListener('click', () => {
+            const hostId = document.getElementById('friend-id').value.toUpperCase();
+            if (!hostId) return alert("Need a ticket to enter!");
+
+            // Apple Fix: Silently load the video element's audio context during the click event
+            videoPlayer.load();
+
+            dataConnection = peer.connect(hostId);
+            setupDataConnection();
+            spawnFloatingItem("Walking into the theatre...", "sys");
+        });
+
+        function setupDataConnection() {
+            dataConnection.on('data', (data) => {
+                if(data.type === 'flirtBomb') { explodeHearts(); return; }
+                spawnFloatingItem(data.message, "friend");
+            });
+        }
+
+        document.getElementById('chat-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const msg = e.target.value;
+                if (msg && dataConnection && dataConnection.open) {
+                    dataConnection.send({ type: 'msg', message: msg });
+                    spawnFloatingItem(msg, "me"); 
+                    e.target.value = '';
+                }
+            }
+        });
+
+        function sendReaction(emoji) {
+            if (dataConnection && dataConnection.open) dataConnection.send({ type: 'msg', message: emoji });
+            spawnFloatingItem(emoji, "me");
+        }
+
+        function triggerFlirtBomb() {
+            explodeHearts();
+            if (dataConnection && dataConnection.open) dataConnection.send({ type: 'flirtBomb' });
+        }
+
+        function spawnFloatingItem(text, sender) {
+            const item = document.createElement('div');
+            item.className = 'floating-item';
+            
+            if (['❤️', '😂', '🍿', '✨', '💌'].includes(text)) {
+                item.classList.add('reaction-emoji');
+            } else {
+                if (sender === "friend") item.classList.add('friend');
+            }
+            
+            item.innerText = text;
+            
+            const randomOffset = Math.floor(Math.random() * 20);
+            if (sender === "friend") {
+                item.style.left = (5 + randomOffset) + '%';
+            } else if (sender === "me") {
+                item.style.right = (5 + randomOffset) + '%'; 
+                item.style.left = 'auto';
+                item.style.borderRadius = '20px 20px 0 20px'; 
+            } else { 
+                item.style.left = "50%"; 
+                item.style.transform = "translateX(-50%)";
+                item.style.background = "rgba(255,255,255,0.15)";
+                item.style.border = "none";
+            }
+
+            canvas.appendChild(item);
+            setTimeout(() => item.remove(), 5800);
+        }
     </script>
 </body>
 </html>
