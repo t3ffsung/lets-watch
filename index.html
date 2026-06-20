@@ -45,6 +45,21 @@
         .video-wrapper.active { opacity: 1; pointer-events: auto; }
         video { width: 100%; height: 100%; object-fit: contain; }
 
+        /* --- THE iOS OVERRIDE OVERLAY --- */
+        #ios-play-overlay {
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh;
+            background: rgba(0,0,0,0.85); z-index: 100; display: none;
+            flex-direction: column; align-items: center; justify-content: center;
+            backdrop-filter: blur(10px);
+        }
+        .pulse-play {
+            background: var(--love-red); color: white; font-size: 1.5rem; font-weight: bold;
+            padding: 20px 40px; border-radius: 50px; border: none; cursor: pointer;
+            box-shadow: 0 0 30px rgba(255, 42, 95, 0.6); animation: pulsePlay 2s infinite;
+            -webkit-tap-highlight-color: transparent;
+        }
+        @keyframes pulsePlay { 0% { transform: scale(0.95); box-shadow: 0 0 20px rgba(255, 42, 95, 0.4); } 50% { transform: scale(1.05); box-shadow: 0 0 40px rgba(255, 42, 95, 0.8); } 100% { transform: scale(0.95); box-shadow: 0 0 20px rgba(255, 42, 95, 0.4); } }
+
         .dashboard {
             position: relative; z-index: 10;
             background: rgba(15, 10, 25, 0.6);
@@ -172,7 +187,7 @@
     </div>
 
     <div class="video-wrapper" id="video-layer">
-        <video id="video-player" playsinline webkit-playsinline></video>
+        <video id="video-player" autoplay playsinline webkit-playsinline></video>
         
         <div id="floating-canvas"></div>
         
@@ -186,6 +201,10 @@
             </div>
             <button class="sys-btn" onclick="toggleUI()" title="Hide Controls">👁️</button>
             <button class="sys-btn" style="color: #ff2a5f;" onclick="location.reload()" title="Exit Room">✕</button>
+        </div>
+
+        <div id="ios-play-overlay">
+            <button class="pulse-play" id="force-play-btn">Tap to Start Movie 🍿</button>
         </div>
     </div>
 
@@ -277,7 +296,7 @@
             }
         });
 
-        // --- BULLETPROOF FIX 1: The Persistent Ticket (Restored!) ---
+        // The Persistent Ticket
         const generateShortID = () => Math.random().toString(36).substring(2, 8).toUpperCase();
         let myId = localStorage.getItem('stardustID');
         if (!myId) { myId = generateShortID(); localStorage.setItem('stardustID', myId); }
@@ -288,13 +307,13 @@
         const videoPlayer = document.getElementById('video-player');
         const canvas = document.getElementById('floating-canvas');
 
-        // --- BULLETPROOF FIX 2: Upgraded STUN network to punch through mobile firewalls ---
+        // STUN network to punch through firewalls
         try {
             peer = new Peer(myId, {
                 config: {
                     'iceServers': [
                         { url: 'stun:stun.l.google.com:19302' },
-                        { url: 'stun:global.stun.twilio.com:3478' } // Heavy duty fallback
+                        { url: 'stun:global.stun.twilio.com:3478' } 
                     ]
                 }
             });
@@ -302,11 +321,8 @@
             spawnFloatingItem("Error starting connection engine.", "sys");
         }
 
-        // --- BULLETPROOF FIX 3: Sever the ghost connection cleanly on refresh ---
         window.addEventListener('beforeunload', () => {
-            if (peer && !peer.destroyed) {
-                peer.destroy();
-            }
+            if (peer && !peer.destroyed) { peer.destroy(); }
         });
 
         peer.on('open', (id) => {
@@ -316,7 +332,6 @@
         peer.on('error', (err) => {
             console.error(err);
             if(err.type === 'unavailable-id') {
-                // If ID is stuck on server, clear storage and refresh for a clean slate
                 localStorage.removeItem('stardustID');
                 location.reload();
             } else {
@@ -336,15 +351,20 @@
             document.getElementById('video-layer').classList.add('active');
         }
 
-        // --- HOST LOGIC ---
+        // --- HOST LOGIC FIX: Explicitly play the local preview ---
         document.getElementById('start-hosting-btn').addEventListener('click', async () => {
             try {
                 localStream = await navigator.mediaDevices.getDisplayMedia({ 
                     video: { frameRate: { ideal: 60 } }, 
                     audio: true 
                 });
+                
                 videoPlayer.srcObject = localStream; 
-                videoPlayer.muted = true; 
+                videoPlayer.muted = true; // Crucial so you don't hear your own echo
+                
+                // FIX: Force the video to play locally so you can see what you share
+                videoPlayer.play().catch(e => console.log("Local preview blocked:", e));
+                
                 triggerImmersionMode();
                 spawnFloatingItem("Screen captured. Waiting for her ticket...", "sys");
 
@@ -359,10 +379,9 @@
             dataConnection = conn;
             setupDataConnection();
             
-            // BULLETPROOF FIX 4: Prevent the Race Condition. Wait for connection to open fully.
             conn.on('open', () => {
                 if (localStream) {
-                    spawnFloatingItem("Sending movie stream to the Philippines...", "sys");
+                    spawnFloatingItem("Sending movie stream...", "sys");
                     peer.call(conn.peer, localStream);
                 } else {
                     spawnFloatingItem("She connected! Click 'Host Movie' when ready.", "sys");
@@ -382,6 +401,12 @@
             setupDataConnection();
         });
 
+        // --- THE iOS UNBLOCKER LOGIC ---
+        document.getElementById('force-play-btn').addEventListener('click', function() {
+            videoPlayer.play();
+            document.getElementById('ios-play-overlay').style.display = 'none';
+        });
+
         peer.on('call', (call) => {
             call.answer(); 
             call.on('stream', (remoteStream) => {
@@ -390,9 +415,9 @@
                 let playPromise = videoPlayer.play();
                 if (playPromise !== undefined) {
                     playPromise.catch(error => {
-                        console.log("iOS Autoplay prevented. Waiting for tap.", error);
-                        spawnFloatingItem("Tap anywhere to start movie! 🍿", "sys");
-                        document.body.addEventListener('click', () => { videoPlayer.play(); }, { once: true });
+                        console.log("iOS Autoplay prevented. Overriding...", error);
+                        // FIX: If Safari blocks it, show the massive tap-to-play button
+                        document.getElementById('ios-play-overlay').style.display = 'flex';
                     });
                 }
                 
