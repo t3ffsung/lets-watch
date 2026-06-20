@@ -14,14 +14,12 @@
             --glass-border: rgba(255, 255, 255, 0.15);
         }
 
-        /* Apple Fix: Use 100dvh instead of 100vh to avoid Safari bottom-bar clipping */
         body {
             margin: 0; padding: 0;
             background: linear-gradient(to bottom, #0f0c29, #302b63, #24243e);
             font-family: 'Segoe UI', system-ui, sans-serif;
             color: #fff; height: 100dvh; overflow: hidden;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            /* Prevent pull-to-refresh on mobile */
             overscroll-behavior-y: none; 
         }
 
@@ -115,7 +113,6 @@
             100% { transform: translate(var(--tx), var(--ty)) scale(1.5) rotate(var(--rot)); opacity: 0; }
         }
 
-        /* Apple Fix: Safe padding for bottom notches on newer iPhones */
         .movie-controls {
             position: absolute; right: 20px; top: 50%; transform: translateY(-50%);
             background: var(--glass); backdrop-filter: blur(15px); border: 1px solid var(--glass-border); 
@@ -153,7 +150,6 @@
             -webkit-tap-highlight-color: transparent;
         }
 
-        /* --- MOBILE/IPAD OPTIMIZATIONS --- */
         @media (max-width: 800px) {
             .movie-controls {
                 right: 50%; top: auto; bottom: env(safe-area-inset-bottom, 20px); transform: translateX(50%);
@@ -200,7 +196,7 @@
         <div class="action-split">
             <div class="card">
                 <span style="color: #ffb199; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 2px; font-weight: bold;">Your VIP Ticket</span>
-                <div class="id-display" id="my-id">...</div>
+                <div class="id-display" id="my-id">Connecting...</div>
                 <div>
                     <button class="btn-outline" onclick="copyID()">Copy Ticket 🎟️</button>
                     <button id="start-hosting-btn" style="margin-top: 15px;">Host Movie</button>
@@ -261,8 +257,6 @@
             }
         }
 
-        // Apple Safari doesn't support the Fullscreen API predictably on iPhones. 
-        // Better to just hide the controls so she can enjoy the view.
         let uiVisible = true;
         function toggleUI() {
             const controls = document.getElementById('movie-controls');
@@ -274,7 +268,6 @@
             uiVisible = !uiVisible;
         }
 
-        // Tap anywhere to bring controls back
         document.getElementById('video-layer').addEventListener('click', (e) => {
             if(!uiVisible && e.target.id !== 'chat-input') {
                 const controls = document.getElementById('movie-controls');
@@ -284,17 +277,38 @@
             }
         });
 
-        const generateShortID = () => Math.random().toString(36).substring(2, 8).toUpperCase();
-        let myId = localStorage.getItem('stardustID');
-        if (!myId) { myId = generateShortID(); localStorage.setItem('stardustID', myId); }
-
-        const peer = new Peer(myId);
+        // --- BULLETPROOF FIX 1: Generate a brand new, clean ID every single refresh ---
+        const myId = Math.random().toString(36).substring(2, 8).toUpperCase();
+        let peer;
         let dataConnection = null; 
         let localStream = null; 
         const videoPlayer = document.getElementById('video-player');
         const canvas = document.getElementById('floating-canvas');
 
-        peer.on('open', (id) => document.getElementById('my-id').innerText = id);
+        // --- BULLETPROOF FIX 2: Explicitly define Google STUN servers to bypass Firewalls ---
+        try {
+            peer = new Peer(myId, {
+                config: {
+                    'iceServers': [
+                        { url: 'stun:stun.l.google.com:19302' },
+                        { url: 'stun:stun1.l.google.com:19302' },
+                        { url: 'stun:stun2.l.google.com:19302' }
+                    ]
+                }
+            });
+        } catch(e) {
+            spawnFloatingItem("Error starting connection engine.", "sys");
+        }
+
+        peer.on('open', (id) => {
+            document.getElementById('my-id').innerText = id;
+            spawnFloatingItem("Network Ready! ✨", "sys");
+        });
+
+        peer.on('error', (err) => {
+            console.error(err);
+            spawnFloatingItem("Network Error: " + err.type, "sys");
+        });
 
         function copyID() {
             navigator.clipboard.writeText(myId);
@@ -308,38 +322,7 @@
             document.getElementById('video-layer').classList.add('active');
         }
 
-        peer.on('connection', (conn) => {
-            dataConnection = conn;
-            setupDataConnection();
-            if (localStream) {
-                spawnFloatingItem("She arrived. Starting movie...", "sys");
-                peer.call(conn.peer, localStream);
-            }
-        });
-
-        peer.on('call', (call) => {
-            call.answer(); 
-            call.on('stream', (remoteStream) => {
-                videoPlayer.srcObject = remoteStream;
-                
-                // Apple Fix: Robust autoplay catch
-                let playPromise = videoPlayer.play();
-                if (playPromise !== undefined) {
-                    playPromise.catch(error => {
-                        console.log("iOS Autoplay prevented. Waiting for tap.", error);
-                        spawnFloatingItem("Tap anywhere on screen to start movie! 🍿", "sys");
-                        
-                        // Force play on next tap if iOS blocked it
-                        document.body.addEventListener('click', () => {
-                            videoPlayer.play();
-                        }, { once: true });
-                    });
-                }
-                
-                triggerImmersionMode();
-            });
-        });
-
+        // --- HOST LOGIC ---
         document.getElementById('start-hosting-btn').addEventListener('click', async () => {
             try {
                 localStream = await navigator.mediaDevices.getDisplayMedia({ 
@@ -349,30 +332,66 @@
                 videoPlayer.srcObject = localStream; 
                 videoPlayer.muted = true; 
                 triggerImmersionMode();
-                spawnFloatingItem("Waiting for her ticket...", "sys");
+                spawnFloatingItem("Screen captured. Waiting for her to enter the code...", "sys");
 
-                if (dataConnection && dataConnection.open) {
-                    peer.call(dataConnection.peer, localStream);
-                }
+                // Stop sharing refreshes page
                 localStream.getVideoTracks()[0].onended = () => location.reload();
             } catch (err) {
                 console.error(err); alert("Share cancelled.");
             }
         });
 
+        // Listen for her connecting to you
+        peer.on('connection', (conn) => {
+            dataConnection = conn;
+            setupDataConnection();
+            
+            if (localStream) {
+                spawnFloatingItem("She connected! Sending movie stream...", "sys");
+                peer.call(conn.peer, localStream);
+            } else {
+                spawnFloatingItem("She connected! But you haven't clicked 'Host' yet.", "sys");
+            }
+        });
+
+        // --- JOIN LOGIC ---
         document.getElementById('join-btn').addEventListener('click', () => {
             const hostId = document.getElementById('friend-id').value.toUpperCase();
             if (!hostId) return alert("Need a ticket to enter!");
 
-            // Apple Fix: Silently load the video element's audio context during the click event
-            videoPlayer.load();
+            videoPlayer.load(); // iOS hack
+            spawnFloatingItem("Connecting to the theatre...", "sys");
 
             dataConnection = peer.connect(hostId);
             setupDataConnection();
-            spawnFloatingItem("Walking into the theatre...", "sys");
         });
 
+        // Listen for his movie stream arriving
+        peer.on('call', (call) => {
+            call.answer(); 
+            call.on('stream', (remoteStream) => {
+                videoPlayer.srcObject = remoteStream;
+                
+                let playPromise = videoPlayer.play();
+                if (playPromise !== undefined) {
+                    playPromise.catch(error => {
+                        console.log("iOS Autoplay prevented. Waiting for tap.", error);
+                        spawnFloatingItem("Tap anywhere to start movie! 🍿", "sys");
+                        document.body.addEventListener('click', () => { videoPlayer.play(); }, { once: true });
+                    });
+                }
+                
+                triggerImmersionMode();
+                spawnFloatingItem("🍿 Connected! Grab your popcorn.", "sys");
+            });
+        });
+
+        // --- CHAT LOGIC ---
         function setupDataConnection() {
+            dataConnection.on('open', () => {
+                spawnFloatingItem("Secure connection established! 🔒", "sys");
+            });
+
             dataConnection.on('data', (data) => {
                 if(data.type === 'flirtBomb') { explodeHearts(); return; }
                 spawnFloatingItem(data.message, "friend");
@@ -424,6 +443,7 @@
                 item.style.transform = "translateX(-50%)";
                 item.style.background = "rgba(255,255,255,0.15)";
                 item.style.border = "none";
+                item.style.bottom = "80px"; // move sys messages down slightly
             }
 
             canvas.appendChild(item);
