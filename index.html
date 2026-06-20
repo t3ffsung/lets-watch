@@ -196,7 +196,7 @@
         <div class="action-split">
             <div class="card">
                 <span style="color: #ffb199; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 2px; font-weight: bold;">Your VIP Ticket</span>
-                <div class="id-display" id="my-id">Connecting...</div>
+                <div class="id-display" id="my-id">...</div>
                 <div>
                     <button class="btn-outline" onclick="copyID()">Copy Ticket 🎟️</button>
                     <button id="start-hosting-btn" style="margin-top: 15px;">Host Movie</button>
@@ -277,22 +277,24 @@
             }
         });
 
-        // --- BULLETPROOF FIX 1: Generate a brand new, clean ID every single refresh ---
-        const myId = Math.random().toString(36).substring(2, 8).toUpperCase();
+        // --- BULLETPROOF FIX 1: The Persistent Ticket (Restored!) ---
+        const generateShortID = () => Math.random().toString(36).substring(2, 8).toUpperCase();
+        let myId = localStorage.getItem('stardustID');
+        if (!myId) { myId = generateShortID(); localStorage.setItem('stardustID', myId); }
+
         let peer;
         let dataConnection = null; 
         let localStream = null; 
         const videoPlayer = document.getElementById('video-player');
         const canvas = document.getElementById('floating-canvas');
 
-        // --- BULLETPROOF FIX 2: Explicitly define Google STUN servers to bypass Firewalls ---
+        // --- BULLETPROOF FIX 2: Upgraded STUN network to punch through mobile firewalls ---
         try {
             peer = new Peer(myId, {
                 config: {
                     'iceServers': [
                         { url: 'stun:stun.l.google.com:19302' },
-                        { url: 'stun:stun1.l.google.com:19302' },
-                        { url: 'stun:stun2.l.google.com:19302' }
+                        { url: 'stun:global.stun.twilio.com:3478' } // Heavy duty fallback
                     ]
                 }
             });
@@ -300,14 +302,26 @@
             spawnFloatingItem("Error starting connection engine.", "sys");
         }
 
+        // --- BULLETPROOF FIX 3: Sever the ghost connection cleanly on refresh ---
+        window.addEventListener('beforeunload', () => {
+            if (peer && !peer.destroyed) {
+                peer.destroy();
+            }
+        });
+
         peer.on('open', (id) => {
             document.getElementById('my-id').innerText = id;
-            spawnFloatingItem("Network Ready! ✨", "sys");
         });
 
         peer.on('error', (err) => {
             console.error(err);
-            spawnFloatingItem("Network Error: " + err.type, "sys");
+            if(err.type === 'unavailable-id') {
+                // If ID is stuck on server, clear storage and refresh for a clean slate
+                localStorage.removeItem('stardustID');
+                location.reload();
+            } else {
+                spawnFloatingItem("Network Error: " + err.type, "sys");
+            }
         });
 
         function copyID() {
@@ -332,26 +346,28 @@
                 videoPlayer.srcObject = localStream; 
                 videoPlayer.muted = true; 
                 triggerImmersionMode();
-                spawnFloatingItem("Screen captured. Waiting for her to enter the code...", "sys");
+                spawnFloatingItem("Screen captured. Waiting for her ticket...", "sys");
 
-                // Stop sharing refreshes page
                 localStream.getVideoTracks()[0].onended = () => location.reload();
             } catch (err) {
                 console.error(err); alert("Share cancelled.");
             }
         });
 
-        // Listen for her connecting to you
+        // Listen for connection
         peer.on('connection', (conn) => {
             dataConnection = conn;
             setupDataConnection();
             
-            if (localStream) {
-                spawnFloatingItem("She connected! Sending movie stream...", "sys");
-                peer.call(conn.peer, localStream);
-            } else {
-                spawnFloatingItem("She connected! But you haven't clicked 'Host' yet.", "sys");
-            }
+            // BULLETPROOF FIX 4: Prevent the Race Condition. Wait for connection to open fully.
+            conn.on('open', () => {
+                if (localStream) {
+                    spawnFloatingItem("Sending movie stream to the Philippines...", "sys");
+                    peer.call(conn.peer, localStream);
+                } else {
+                    spawnFloatingItem("She connected! Click 'Host Movie' when ready.", "sys");
+                }
+            });
         });
 
         // --- JOIN LOGIC ---
@@ -359,14 +375,13 @@
             const hostId = document.getElementById('friend-id').value.toUpperCase();
             if (!hostId) return alert("Need a ticket to enter!");
 
-            videoPlayer.load(); // iOS hack
-            spawnFloatingItem("Connecting to the theatre...", "sys");
+            videoPlayer.load(); 
+            spawnFloatingItem("Connecting to theatre...", "sys");
 
-            dataConnection = peer.connect(hostId);
+            dataConnection = peer.connect(hostId, { reliable: true });
             setupDataConnection();
         });
 
-        // Listen for his movie stream arriving
         peer.on('call', (call) => {
             call.answer(); 
             call.on('stream', (remoteStream) => {
@@ -388,10 +403,6 @@
 
         // --- CHAT LOGIC ---
         function setupDataConnection() {
-            dataConnection.on('open', () => {
-                spawnFloatingItem("Secure connection established! 🔒", "sys");
-            });
-
             dataConnection.on('data', (data) => {
                 if(data.type === 'flirtBomb') { explodeHearts(); return; }
                 spawnFloatingItem(data.message, "friend");
@@ -443,7 +454,7 @@
                 item.style.transform = "translateX(-50%)";
                 item.style.background = "rgba(255,255,255,0.15)";
                 item.style.border = "none";
-                item.style.bottom = "80px"; // move sys messages down slightly
+                item.style.bottom = "80px"; 
             }
 
             canvas.appendChild(item);
